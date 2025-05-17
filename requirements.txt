@@ -1,0 +1,16 @@
+# conda create -n autocad python=3.13
+packaging
+ninja
+# install torch and flash-attn match with cuda driver version
+# pip install torch==2.5.0 --index-url https://download.pytorch.org/whl/cu121
+# check: nvcc --version ; which nvcc
+# pip install flash-attn --no-build-isolation
+# deepspeed
+# bitsandbytes
+trl
+transformers
+datasets
+liger-kernel
+galore-torch
+accelerate
+python-dotenv
