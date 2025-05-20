@@ -1,19 +1,19 @@
 # deepspeed
 # bitsandbytes
+# accelerate
+# wandb
 trl
 transformers
 datasets
 liger-kernel
 galore-torch
-accelerate
 python-dotenv
-wandb
-# conda create -n autocad python=3.11
-packaging
-ninja
+#packaging
+#ninja
 # install torch and nvcc match =< cuda driver version
 # install nvcc in https://anaconda.org/nvidia/cuda-nvcc
 # pip3 install torch --index-url https://download.pytorch.org/whl/cu128
 #python -c "import torch; print(torch.cuda.is_available())"
 # check: nvcc --version ; which nvcc
 # pip install flash-attn --no-build-isolation
+# CUDA_VISIBLE_DEVICES=4

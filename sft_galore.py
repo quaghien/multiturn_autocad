@@ -45,13 +45,13 @@ if __name__ == "__main__":
             raise ValueError("Please set WANDB_API_KEY environment variable")
         wandb.login(key=wandb_token)
 
-        wandb.init(project="sft-stage1-cad-completion")
+        wandb.init(project="stage1-cad-completion")
         
         dtype = torch.bfloat16
         max_length = 6000
         num_epochs = 3
         learning_rate = 1e-5
-        num_proc = 30
+        num_proc = 16
         model_name = "Qwen/Qwen2.5-7B-Instruct"
         output_dir = f"{model_name.split('/')[-1]}_{num_epochs}epoch_{max_length}maxlength"
 
@@ -88,14 +88,13 @@ if __name__ == "__main__":
         }
         
         train_dataset = Dataset.from_dict(dataset_dict)
-        train_dataset = train_dataset.map(apply_chat_template, fn_kwargs={"tokenizer": tokenizer})
+        train_dataset = train_dataset.map(apply_chat_template, fn_kwargs={"tokenizer": tokenizer}, num_proc=num_proc)
         
-        # print(train_dataset)
-        # print("Dataset format example:")
-        # print(train_dataset[0])
+        print(train_dataset)
 
         training_args = SFTConfig(
-            dataset_num_proc = num_proc,
+            dataset_num_proc=num_proc,
+            dataloader_num_workers=2,
             max_length = max_length,
             completion_only_loss = True,
             output_dir=f"./train_results/{output_dir}",
@@ -103,11 +102,11 @@ if __name__ == "__main__":
             per_device_train_batch_size=4,
             learning_rate=learning_rate,
             bf16=True,
-            save_strategy="epoch",
-            # max_steps=100,
-            # save_strategy="steps",
-            # save_steps=100,
-            logging_steps=50,
+            save_strategy="steps",
+            save_steps=3919,
+            save_total_limit=2,
+            save_safetensors=True,
+            logging_steps=100,
             use_liger_kernel=True,
             gradient_checkpointing=True,
             optim="galore_adamw_8bit_layerwise",
@@ -123,12 +122,17 @@ if __name__ == "__main__":
             train_dataset=train_dataset
         )
 
-        trainer.train()
+        try:
+            trainer.train()
+        except Exception as e:
+            print(f"Error: {e}")
+            print("Saving model and tokenizer")
+            save_model(model, tokenizer, f"./train_error/{output_dir}")
 
         save_model(model, tokenizer, f"./final_model/{output_dir}")
 
-        # model.push_to_hub(f"wanhin/{output_dir}")
-        # tokenizer.push_to_hub(f"wanhin/{output_dir}")
+        model.push_to_hub(f"wanhin/{output_dir}")
+        tokenizer.push_to_hub(f"wanhin/{output_dir}")
 
     finally:
         if wandb.run is not None:
