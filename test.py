@@ -3,6 +3,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 import os
 from dotenv import load_dotenv
 from huggingface_hub import login
+from trl import apply_chat_template
 
 def load_trained_model(model_path):
     model = AutoModelForCausalLM.from_pretrained(
@@ -22,18 +23,19 @@ def load_trained_model(model_path):
 
 if __name__ == "__main__":
     # Load environment variables and login to HF
-    load_dotenv()
-    hf_token = os.getenv('HF_TOKEN')
-    if not hf_token:
-        raise ValueError("Please set HF_TOKEN environment variable")
-    login(token=hf_token)
+    # load_dotenv()
+    # hf_token = os.getenv('HF_TOKEN')
+    # if not hf_token:
+    #     raise ValueError("Please set HF_TOKEN environment variable")
+    # login(token=hf_token)
 
     # Load the trained model
-    model_path = "./final_model/Qwen2.5-7B-Instruct_2epoch_6000maxlength"  # Update this path to match your saved model
-    # model_path = "Qwen/Qwen2.5-7B-Instruct"
+    # model_path = "train_results/Qwen2.5-7B-Instruct_3epoch_6000maxlength/checkpoint-105813"  # Update this path to match your saved model
+    model_path = "wanhin/Qwen2.5-7B-Instruct_1epoch_6000maxlength"
     my_model, my_tokenizer = load_trained_model(model_path)
-    # my_model.push_to_hub(f"wanhin/Qwen2.5-7B-Instruct_2epoch_6000maxlength")
-    # my_tokenizer.push_to_hub(f"wanhin/Qwen2.5-7B-Instruct_2epoch_6000maxlength")
+    # my_model.push_to_hub(f"wanhin/Qwen2.5-7B-Instruct_1epoch_6000maxlength")
+    # my_tokenizer.push_to_hub(f"wanhin/Qwen2.5-7B-Instruct_1epoch_6000maxlength")
+    # print("Pushed model and tokenizer to hub")
 
     prompt ='''<objective>
     Generate a JSON file describing the sketching and extrusion steps needed to construct a 3D CAD model. Generate only the JSON file, no other text.
@@ -53,23 +55,32 @@ if __name__ == "__main__":
     </instruction>
 
     <description>
-    **Part 1: Three-Dimensional Rectangular Prism with Tapered Top and Bottom** Begin by creating a new coordinate system for part 1 with the following parameters: * Euler Angles: [0.0, 0.0, -90.0] * Translation Vector: [0.0, 0.75, 0.0] For the 2D sketch, create a face (face\\_1) on the XY plane: * Loop 1: + Line 1: Start Point [0.0, 0.0], End Point [0.5, 0.0] + Line 2: Start Point [0.5, 0.0], End Point [0.5, 0.25] + Line 3: Start Point [0.5, 0.25], End Point [0.25, 0.25] + Line 4: Start Point [0.25, 0.25], End Point [0.25, 0.625] + Line 5: Start Point [0.25, 0.625], End Point [0.0, 0.625] + Line 6: Start Point [0.0, 0.625], End Point [0.0, 0.0] After drawing the 2D sketch, scale it using the sketch\\_scale parameter with a value of 0.625. Then, transform the scaled 2D sketch into 3D using the provided euler angles and translation vector. Extrude the sketch with the following parameters: * extrude\\_depth\\_towards\\_normal: 0.75 * extrude\\_depth\\_opposite\\_normal: 0.0 * sketch\\_scale: 0.625 This completes the first part, which is a three-dimensional rectangular prism with a slightly tapered top and bottom. The part has a length of 0.625, a width of 0.75, and a height of 0.625. **Part 2: Three-Dimensional Rectangular Prism with Flat Top and Bottom** Create a new coordinate system for part 2 with the following parameters: * Euler Angles: [0.0, 0.0, 0.0] * Translation Vector: [0.25, 0.5, 0.25] For the 2D sketch, create a face (face\\_1) on the XY plane: * Loop 1: + Line 1: Start Point [0.0, 0.25], End Point [0.25, 0.0] + Line 2: Start Point [0.25, 0.0], End Point [0.25, 0.25] + Line 3: Start Point [0.25, 0.25], End Point [0.0, 0.25] After drawing the 2D sketch, extrude it with the following parameters: * extrude\\_depth\\_towards\\_normal: 0.0 * extrude\\_depth\\_opposite\\_normal: 0.5 * sketch\\_scale: 0.25 Use the cut boolean operation for this part. This results in a three-dimensional rectangular prism with a flat top and bottom. The sides are parallel, and the top and bottom faces are perpendicular to the sides. The dimensions of the prism are 2 units by 4 units by 6 units. The part has a length of 0.25, a width of 0.25, and a height of 0.5. **Part 3: Rectangular Prism with Flat Top and Bottom** Create a new coordinate system for part 3 with the following parameters: * Euler Angles: [-90.0, 0.0, -90.0] * Translation Vector: [0.25, 0.5, 0.25] For the 2D sketch, create a face (face\\_1) on the YZ plane: * Loop 1: + Line 1: Start Point [0.0, 0.375], End Point [0.25, 0.0] + Line 2: Start Point [0.25, 0.0], End Point [0.25, 0.375] + Line 3: Start Point [0.25, 0.375], End Point [0.0, 0.375] After drawing the 2D sketch, extrude it with the following parameters: * extrude\\_depth\\_towards\\_normal: 0.0 * extrude\\_depth\\_opposite\\_normal: 0.75 * sketch\\_scale: 0.375 Use the cut boolean operation for this part. This results in a rectangular prism with a flat top and bottom. The sides are parallel, and the top and bottom faces are perpendicular to the sides. The dimensions of the prism are 3 units in length, 2 units in width, and 1 unit in height. The part has a length of 0.75, a width of 0.375, and a height of 0.375. **Final CAD Model:** By combining all the parts, you will create a final CAD model, which is a three-dimensional rectangular prism with a tapered top and bottom and a hollowed-out center. This model combines the characteristics of each individual part, forming a single, cohesive structure. * The model has a slightly tapered top and bottom with the dimensions of the outermost prism being 2 units by 6 units by 1.25 units. * The hollowed-out center is formed by combining parts 2 and 3, creating an internal space in the middle of the overall structure. * This structure can be used as a container or a base for other assemblies, highlighting the importance of mastering the creation of individual parts and their integration into a cohesive final design.
+    **Đối tượng phẳng, tròn có lỗ trung tâm** Bắt đầu bằng cách tạo hệ tọa độ mới cho phần đầu tiên với các thuộc tính sau: * Góc Euler: [0,0, 0,0, 0,0] * Vector dịch: [0,0, 0,0, 0,0375] Đối với bản phác thảo của phần này, tạo một mặt mới (mặt\\_1) và xác định các vòng lặp và đường cong như sau: **Mặt 1** *Vòng lặp 1* * Vòng tròn 1: + Tâm: [0,375, 0,375] + Bán kính: 0,375 *Vòng 2* * Dòng 1: + Điểm bắt đầu: [0,1429, 0,5537] + Điểm kết thúc: [0,1692, 0,5537] * Dòng 2: + Điểm bắt đầu: [0,1692, 0,5537] + Điểm kết thúc: [0,1692, 0,5884] * Dòng 3: + Điểm bắt đầu: [0,1692, 0,5884] + Điểm kết thúc: [0,1429, 0,5884] * Dòng 4: + Điểm bắt đầu: [0,1429, 0,5884] + Điểm kết thúc: [0,1429, 0,5537] *Vòng 3* * Vòng 1: + Giữa: [0,375, 0,375] + Bán kính: 0,075 *Vòng 4* * Dòng 1: + Điểm bắt đầu: [0,542, 0,2212] + Điểm kết thúc: [0,5669, 0,2212] * Dòng 2: + Điểm bắt đầu: [0,5669, 0,2212] + Điểm kết thúc: [0,5669, 0,2545] * Dòng 3: + Điểm bắt đầu: [0,5669, 0,2545] + Điểm kết thúc: [0,542, 0,2545] * Dòng 4: + Điểm bắt đầu: [0,542, 0,2545] + Điểm kết thúc: [0,542, 0,2212] *Vòng 5* * Dòng 1: + Điểm bắt đầu: [0,5517, 0,5842] + Điểm cuối: [0,5669, 0,5842] * Dòng 2: + Điểm bắt đầu: [0,5669, 0,5842] + Điểm cuối: [0,5669, 0,605] * Dòng 3: + Điểm bắt đầu: [0,5669, 0,605] + Điểm cuối: [0,5517, 0,605] * Đường 4: + Điểm bắt đầu: [0.5517, 0.605] + Điểm kết thúc: [0.5517, 0.5842] Bản phác thảo đã hoàn tất. Chia tỷ lệ bản phác thảo bằng cách sử dụng tham số chia tỷ lệ sketch\\_scale (0,75), chuyển đổi nó thành 3D, sau đó đùn bản phác thảo để tạo mô hình 3D. Áp dụng NewBodyFeatureOperation để tạo hình dạng cuối cùng. Hình dạng cuối cùng là một vật thể phẳng, hình tròn có lỗ ở giữa, bề mặt nhẵn, cong và đối xứng qua trục trung tâm của nó. Lỗ nằm ở tâm của vật thể và có đường kính bằng chính vật thể đó. Vật thể có vẻ là một khối ba chiều, không có kết cấu hoặc hoa văn rõ ràng. Vật thể có kích thước như sau: * Chiều dài: 0,75 m * Chiều rộng: 0,75 m * Chiều cao: 0,0375 m
     </description>'''
 
-    # Format the input using chat template
+    # prompt ='''Bạn có hiểu tiếng việt không?'''
+
+    # # Format the input using chat template
+    # example = {
+    #     "prompt": [{"role": "user", "content": "What color is the sky?"}],
+    #     "completion": [{"role": "assistant", "content": "It is blue."}]
+    # }
+
     messages = [
         {"role": "system", "content": "You are a helpful AI assistant that generates CAD model descriptions in JSON format."},
         {"role": "user", "content": prompt}
     ]
-    
-    formatted_prompt = my_tokenizer.apply_chat_template(
+    text = my_tokenizer.apply_chat_template(
         messages,
         tokenize=False,
         add_generation_prompt=True
     )
+    # formatted_prompt = apply_chat_template(example, my_tokenizer)
 
-    # Prepare model inputs
-    model_inputs = my_tokenizer([formatted_prompt], return_tensors="pt").to(my_model.device)
+    # print(formatted_prompt)
+
+    #Prepare model inputs
+    model_inputs = my_tokenizer(text, return_tensors="pt").to(my_model.device)
 
     # Generate response
     print("Generating response...")
@@ -79,6 +90,7 @@ if __name__ == "__main__":
         do_sample=True,
         temperature=0.7,
         top_p=0.9,
+        top_k=20,
         pad_token_id=my_tokenizer.pad_token_id,
         eos_token_id=my_tokenizer.eos_token_id
     )
@@ -89,5 +101,5 @@ if __name__ == "__main__":
     ]
 
     response = my_tokenizer.batch_decode(generated_ids, skip_special_tokens=True)[0]
-    print("\nGenerated Response:")
+    print()
     print(response)

@@ -11,14 +11,11 @@ if not hf_token:
 login(token=hf_token)
 
 # Load new datasets
-train_en = load_dataset("TruongSinhAI/DEEPCAD-Text2Json-EnVi", split="val_en")
-train_vi = load_dataset("TruongSinhAI/DEEPCAD-Text2Json-EnVi", split="val_vi")
+test_en = load_dataset("TruongSinhAI/DEEPCAD-Text2Json-EnVi", split="test_en")
+test_vi = load_dataset("TruongSinhAI/DEEPCAD-Text2Json-EnVi", split="test_vi")
 
 # Interleave new datasets
-new_dataset = interleave_datasets([train_en, train_vi])
-
-# Load old dataset
-old_dataset = load_dataset("wanhin/DEEPCAD-completion-sft", split="train")
+new_dataset = interleave_datasets([test_en, test_vi])
 
 messages_prompt ='''<objective>
 Generate a JSON file describing the sketching and extrusion steps needed to construct a 3D CAD model. Generate only the JSON file, no other text.
@@ -53,19 +50,14 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 processed_new_dataset = new_dataset.map(
     process_example, 
     batched=False, 
-    num_proc=30,
+    num_proc=16,
     remove_columns=new_dataset.column_names,
     load_from_cache_file=False
 )
 
-# Concatenate old and new datasets
-combined_dataset = concatenate_datasets([old_dataset, processed_new_dataset])
+print(f"New test dataset size: {len(processed_new_dataset)}")
 
-print(f"Old dataset size: {len(old_dataset)}")
-print(f"New dataset size: {len(processed_new_dataset)}")
-print(f"Combined dataset size: {len(combined_dataset)}")
-
-# Push to hub
-combined_dataset.push_to_hub("wanhin/DEEPCAD-completion-sft")
+# Push to hub as test split
+processed_new_dataset.push_to_hub("wanhin/DEEPCAD-completion-sft", split="test")
 
 
