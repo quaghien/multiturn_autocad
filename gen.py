@@ -31,14 +31,11 @@ def generate_response(model, tokenizer, prompt, do_sample=True):
 
     <instruction>
     You will be given a natural language description of a CAD design task. Your goal is to convert it into a structured JSON representation, which includes sketch geometry and extrusion operations.
-
-    The JSON must follow the structure defined in the <template> section, and the extrusion <operation> must be one of the following:
-
+    The extrusion <operation> must be one of the following:
     1. <NewBodyFeatureOperation>: Creates a new solid body.
     2. <JoinFeatureOperation>: Fuses the shape with an existing body.
     3. <CutFeatureOperation>: Subtracts the shape from an existing body.
     4. <IntersectFeatureOperation>: Keeps only the overlapping volume between the new shape and existing body.
-
     Ensure all coordinates, geometry, and extrusion depths are extracted accurately from the input.
     </instruction>
 
@@ -80,7 +77,7 @@ def process_dataset(model, tokenizer, dataset, split_name, do_sample=True):
     print(f"Generating predictions for {split_name}...")
     predictions = []
     # Take only first 1000 samples
-    dataset = dataset.select(range(min(500, len(dataset))))
+    # dataset = dataset.select(range(min(500, len(dataset))))
     for item in tqdm(dataset, desc=f"Processing {split_name}"):
         pred = generate_response(model, tokenizer, item["input"], do_sample=do_sample)
         predictions.append(pred)
@@ -93,7 +90,7 @@ def process_dataset(model, tokenizer, dataset, split_name, do_sample=True):
     })
 
     print(f"Pushing {split_name} dataset to hub...")
-    processed_dataset.push_to_hub("wanhin/test_1e_stage1", split=split_name)
+    processed_dataset.push_to_hub("wanhin/test_1e_stage1_full_ft", split=split_name)
     print(f"{split_name} dataset pushed successfully!")
 
 def main():
@@ -105,7 +102,7 @@ def main():
     login(token=hf_token)
 
     # Load the trained model
-    model_path = "train_results/Qwen2.5-7B-Instruct_3epoch_6000maxlength/checkpoint-82299"
+    model_path = "1e_full"
     model, tokenizer = load_trained_model(model_path)
 
     # Load English and Vietnamese test datasets separately

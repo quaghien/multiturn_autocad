@@ -1,19 +1,19 @@
-# deepspeed
-# bitsandbytes
-# accelerate
-# wandb
+wandb
 trl
 transformers
 datasets
 liger-kernel
 galore-torch
 python-dotenv
-#packaging
-#ninja
+deepspeed
+accelerate
 # install torch and nvcc match =< cuda driver version
 # install nvcc in https://anaconda.org/nvidia/cuda-nvcc
-# pip3 install torch --index-url https://download.pytorch.org/whl/cu128
-#python -c "import torch; print(torch.cuda.is_available())"
+# conda install nvidia/label/cuda-12.8.1::cuda-nvcc
+# conda install -c nvidia cuda-toolkit=12.8
+
+# pip3 install --pre torch --index-url https://download.pytorch.org/whl/nightly/cu128
+# python -c "import torch; print(torch.cuda.is_available())"
 # check: nvcc --version ; which nvcc
 # pip install flash-attn --no-build-isolation
-# CUDA_VISIBLE_DEVICES=4
+# CUDA_VISIBLE_DEVICES=4,5 accelerate launch --main_process_port=29501 --config_file default_config.yaml sft_ds.py

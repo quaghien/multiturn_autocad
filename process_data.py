@@ -11,11 +11,15 @@ if not hf_token:
 login(token=hf_token)
 
 # Load new datasets
-test_en = load_dataset("TruongSinhAI/DEEPCAD-Text2Json-EnVi", split="test_en")
-test_vi = load_dataset("TruongSinhAI/DEEPCAD-Text2Json-EnVi", split="test_vi")
+train_en = load_dataset("TruongSinhAI/DEEPCAD-Text2Json-EnVi", split="test_vi")
+# train_vi = load_dataset("TruongSinhAI/DEEPCAD-Text2Json-EnVi", split="val_vi")
 
-# Interleave new datasets
-new_dataset = interleave_datasets([test_en, test_vi])
+new_dataset = train_en
+
+# new_dataset = interleave_datasets([train_en, train_vi])
+
+# new_dataset = new_dataset.select(range(min(400, len(new_dataset))))
+
 
 messages_prompt ='''<objective>
 Generate a JSON file describing the sketching and extrusion steps needed to construct a 3D CAD model. Generate only the JSON file, no other text.
@@ -23,14 +27,11 @@ Generate a JSON file describing the sketching and extrusion steps needed to cons
 
 <instruction>
 You will be given a natural language description of a CAD design task. Your goal is to convert it into a structured JSON representation, which includes sketch geometry and extrusion operations.
-
-The JSON must follow the structure defined in the <template> section, and the extrusion <operation> must be one of the following:
-
+The extrusion <operation> must be one of the following:
 1. <NewBodyFeatureOperation>: Creates a new solid body.
 2. <JoinFeatureOperation>: Fuses the shape with an existing body.
 3. <CutFeatureOperation>: Subtracts the shape from an existing body.
 4. <IntersectFeatureOperation>: Keeps only the overlapping volume between the new shape and existing body.
-
 Ensure all coordinates, geometry, and extrusion depths are extracted accurately from the input.
 </instruction>'''
 
@@ -58,6 +59,6 @@ processed_new_dataset = new_dataset.map(
 print(f"New test dataset size: {len(processed_new_dataset)}")
 
 # Push to hub as test split
-processed_new_dataset.push_to_hub("wanhin/DEEPCAD-completion-sft", split="test")
+processed_new_dataset.push_to_hub("wanhin/DEEPCAD-stage1", split="test_vi")
 
 

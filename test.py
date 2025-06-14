@@ -23,19 +23,18 @@ def load_trained_model(model_path):
 
 if __name__ == "__main__":
     # Load environment variables and login to HF
-    # load_dotenv()
-    # hf_token = os.getenv('HF_TOKEN')
-    # if not hf_token:
-    #     raise ValueError("Please set HF_TOKEN environment variable")
-    # login(token=hf_token)
+    load_dotenv()
+    hf_token = os.getenv('HF_TOKEN')
+    if not hf_token:
+        raise ValueError("Please set HF_TOKEN environment variable")
+    login(token=hf_token)
 
     # Load the trained model
-    # model_path = "train_results/Qwen2.5-7B-Instruct_3epoch_6000maxlength/checkpoint-105813"  # Update this path to match your saved model
-    model_path = "wanhin/Qwen2.5-7B-Instruct_1epoch_6000maxlength"
+    model_path = "wanhin/Qwen2.5-7B-Instruct_1e_fullfinetune"  # Update this path to match your saved model
+
     my_model, my_tokenizer = load_trained_model(model_path)
-    # my_model.push_to_hub(f"wanhin/Qwen2.5-7B-Instruct_1epoch_6000maxlength")
-    # my_tokenizer.push_to_hub(f"wanhin/Qwen2.5-7B-Instruct_1epoch_6000maxlength")
-    # print("Pushed model and tokenizer to hub")
+    # my_model.push_to_hub(f"wanhin/Qwen2.5-7B-Instruct_1e_fullfinetune")
+    # my_tokenizer.push_to_hub(f"wanhin/Qwen2.5-7B-Instruct_1e_fullfinetune")
 
     prompt ='''<objective>
     Generate a JSON file describing the sketching and extrusion steps needed to construct a 3D CAD model. Generate only the JSON file, no other text.
@@ -43,19 +42,16 @@ if __name__ == "__main__":
 
     <instruction>
     You will be given a natural language description of a CAD design task. Your goal is to convert it into a structured JSON representation, which includes sketch geometry and extrusion operations.
-
-    The JSON must follow the structure defined in the <template> section, and the extrusion <operation> must be one of the following:
-
+    The extrusion <operation> must be one of the following:
     1. <NewBodyFeatureOperation>: Creates a new solid body.
     2. <JoinFeatureOperation>: Fuses the shape with an existing body.
     3. <CutFeatureOperation>: Subtracts the shape from an existing body.
     4. <IntersectFeatureOperation>: Keeps only the overlapping volume between the new shape and existing body.
-
     Ensure all coordinates, geometry, and extrusion depths are extracted accurately from the input.
     </instruction>
 
     <description>
-    **Đối tượng phẳng, tròn có lỗ trung tâm** Bắt đầu bằng cách tạo hệ tọa độ mới cho phần đầu tiên với các thuộc tính sau: * Góc Euler: [0,0, 0,0, 0,0] * Vector dịch: [0,0, 0,0, 0,0375] Đối với bản phác thảo của phần này, tạo một mặt mới (mặt\\_1) và xác định các vòng lặp và đường cong như sau: **Mặt 1** *Vòng lặp 1* * Vòng tròn 1: + Tâm: [0,375, 0,375] + Bán kính: 0,375 *Vòng 2* * Dòng 1: + Điểm bắt đầu: [0,1429, 0,5537] + Điểm kết thúc: [0,1692, 0,5537] * Dòng 2: + Điểm bắt đầu: [0,1692, 0,5537] + Điểm kết thúc: [0,1692, 0,5884] * Dòng 3: + Điểm bắt đầu: [0,1692, 0,5884] + Điểm kết thúc: [0,1429, 0,5884] * Dòng 4: + Điểm bắt đầu: [0,1429, 0,5884] + Điểm kết thúc: [0,1429, 0,5537] *Vòng 3* * Vòng 1: + Giữa: [0,375, 0,375] + Bán kính: 0,075 *Vòng 4* * Dòng 1: + Điểm bắt đầu: [0,542, 0,2212] + Điểm kết thúc: [0,5669, 0,2212] * Dòng 2: + Điểm bắt đầu: [0,5669, 0,2212] + Điểm kết thúc: [0,5669, 0,2545] * Dòng 3: + Điểm bắt đầu: [0,5669, 0,2545] + Điểm kết thúc: [0,542, 0,2545] * Dòng 4: + Điểm bắt đầu: [0,542, 0,2545] + Điểm kết thúc: [0,542, 0,2212] *Vòng 5* * Dòng 1: + Điểm bắt đầu: [0,5517, 0,5842] + Điểm cuối: [0,5669, 0,5842] * Dòng 2: + Điểm bắt đầu: [0,5669, 0,5842] + Điểm cuối: [0,5669, 0,605] * Dòng 3: + Điểm bắt đầu: [0,5669, 0,605] + Điểm cuối: [0,5517, 0,605] * Đường 4: + Điểm bắt đầu: [0.5517, 0.605] + Điểm kết thúc: [0.5517, 0.5842] Bản phác thảo đã hoàn tất. Chia tỷ lệ bản phác thảo bằng cách sử dụng tham số chia tỷ lệ sketch\\_scale (0,75), chuyển đổi nó thành 3D, sau đó đùn bản phác thảo để tạo mô hình 3D. Áp dụng NewBodyFeatureOperation để tạo hình dạng cuối cùng. Hình dạng cuối cùng là một vật thể phẳng, hình tròn có lỗ ở giữa, bề mặt nhẵn, cong và đối xứng qua trục trung tâm của nó. Lỗ nằm ở tâm của vật thể và có đường kính bằng chính vật thể đó. Vật thể có vẻ là một khối ba chiều, không có kết cấu hoặc hoa văn rõ ràng. Vật thể có kích thước như sau: * Chiều dài: 0,75 m * Chiều rộng: 0,75 m * Chiều cao: 0,0375 m
+    **Construct the base part of the cylindrical object with a rectangular hole in the center, positioned horizontally.** 1. **Create a new coordinate system.** Set the euler angles to [0.0, 0.0, 0.0] and the translation vector to [0.0, 0.0, 0.0]. 2. **Draw a 2D sketch on the X-Y plane of the coordinate system.** 3. **Create the first face of the sketch.** 4. **Create a circle loop on the face.** 5. **Define the circle loop using a center point and a radius.** The center point is located at [0.375, 0.375] and the radius is 0.375. 6. **Scale the 2D sketch by a factor of 0.75.** 7. **Transform the scaled 2D sketch into a 3D sketch.** 8. **Extrude the 3D sketch along the Z-axis.** The extrusion depth towards the normal is 0.0369 and the extrusion depth opposite the normal is 0.0. **Dimensions:** * Height: 0.0369 * Width: 0.75 * Length: 0.75 This completes the construction of the base part of the cylindrical object with a rectangular hole in the center, positioned horizontally.
     </description>'''
 
     # prompt ='''Bạn có hiểu tiếng việt không?'''
@@ -75,6 +71,13 @@ if __name__ == "__main__":
         tokenize=False,
         add_generation_prompt=True
     )
+    # completion_content = '''{"final_shape": "", "parts": {"part_1": {"coordinate_system": {"Euler Angles": [0.0, 0.0, -90.0], "Translation Vector": [0.0, 0.075, 0.0]}, "sketch": {"face_1": {"loop_1": {"line_1": {"Start Point": [0.0, 0.0], "End Point": [0.75, 0.0]}, "line_2": {"Start Point": [0.75, 0.0], "End Point": [0.75, 0.75]}, "line_3": {"Start Point": [0.75, 0.75], "End Point": [0.0, 0.75]}, "line_4": {"Start Point": [0.0, 0.75], "End Point": [0.0, 0.0]}}}}, "extrusion": {"extrude_depth_towards_normal": 0.075, "extrude_depth_opposite_normal": 0.0, "sketch_scale": 0.75, "operation": "NewBodyFeatureOperation"}, "description": {"shape": "", "length": 0.75, "width": 0.075, "height": 0.75}}}}'''
+
+    # example = {
+    #     "prompt": [{"role": "user", "content": "prompt_setup"}],
+    #     "completion": [{"role": "assistant", "content": "training_content"}]
+    # }
+
     # formatted_prompt = apply_chat_template(example, my_tokenizer)
 
     # print(formatted_prompt)
@@ -87,12 +90,12 @@ if __name__ == "__main__":
     generated_ids = my_model.generate(
         **model_inputs,
         max_new_tokens=6000,
-        do_sample=True,
-        temperature=0.7,
-        top_p=0.9,
-        top_k=20,
-        pad_token_id=my_tokenizer.pad_token_id,
-        eos_token_id=my_tokenizer.eos_token_id
+        do_sample=False,
+        # temperature=0.7,
+        # top_p=0.9,
+        # top_k=20,
+        # pad_token_id=my_tokenizer.pad_token_id,
+        # eos_token_id=my_tokenizer.eos_token_id
     )
 
     # Process generated output
