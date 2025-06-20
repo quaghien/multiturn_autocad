@@ -23,3 +23,5 @@ https://github.com/SadilKhan/Text2CAD
 https://github.com/ChrisWu1997/DeepCAD
 
 [On the Thinking-Language Modeling Gap in Large Language Models](https://arxiv.org/abs/2505.12896)
+
+[Universality of Layer-Level Entropy-Weighted Quantization Beyond Model Architecture and Size]([url](https://arxiv.org/abs/2503.04704))
