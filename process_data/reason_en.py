@@ -185,15 +185,14 @@ def process_dataset(start=0, end=500, old_split="range_0_500_en"):
     new_split_name = f"{old_split}_{start}_{end}"
     
     # Push to hub
-    print(f"Uploading dataset to 'wanhin/cad_reason_1' with split '{new_split_name}'...")
-    from datasets import Dataset, DatasetDict
+    print(f"Uploading dataset to 'wanhin/cad_reason_stage2' with split '{new_split_name}'...")
+    from datasets import Dataset
     
     new_dataset = Dataset.from_list(new_data)
-    dataset_dict_obj = DatasetDict({new_split_name: new_dataset})
     
-    dataset_dict_obj.push_to_hub("wanhin/cad_reason_1")
+    new_dataset.push_to_hub("wanhin/cad_reason_stage2", split=new_split_name)
     print("Dataset uploaded successfully!")
 
 if __name__ == "__main__":
     # Example usage
-    process_dataset(start=0, end=1500, old_split="range_1000_1500_en")
+    process_dataset(start=4500, end=6000, old_split="range_1000_1500_en")
