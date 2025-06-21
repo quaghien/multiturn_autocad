@@ -30,7 +30,7 @@ if __name__ == "__main__":
     login(token=hf_token)
 
     # Load the trained model
-    model_path = "wanhin/Qwen2.5-7B-Instruct_1e_fullfinetune"  # Update this path to match your saved model
+    model_path = "wanhin/Qwen2.5-7B-Instruct_1e_GALORE"  # Update this path to match your saved model
 
     my_model, my_tokenizer = load_trained_model(model_path)
     # my_model.push_to_hub(f"wanhin/Qwen2.5-7B-Instruct_1e_fullfinetune")

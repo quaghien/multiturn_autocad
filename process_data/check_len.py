@@ -10,7 +10,7 @@ tokenizer = AutoTokenizer.from_pretrained(
     "Qwen/Qwen2.5-7B-Instruct",
     use_fast=True,
     padding_side="left",
-    model_max_length=6000
+    model_max_length=10000
 )
 
 # Convert to chat format
