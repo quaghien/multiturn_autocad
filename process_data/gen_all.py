@@ -6,6 +6,7 @@ from dotenv import load_dotenv
 from huggingface_hub import login
 import pandas as pd
 from tqdm import tqdm
+import re
 
 def load_trained_model(model_path):
     model = AutoModelForCausalLM.from_pretrained(
@@ -23,20 +24,29 @@ def load_trained_model(model_path):
     print(f'Loaded model and tokenizer from {model_path}')
     return model, tokenizer
 
+def extract_tags(text, tag_name):
+    """Extract content from XML-like tags"""
+    pattern = f"<{tag_name}>(.*?)</{tag_name}>"
+    matches = re.findall(pattern, text, re.DOTALL)
+    return matches[0].strip() if matches else ""
+
 def generate_response(model, tokenizer, prompt, do_sample=True):
     # Create complete prompt template
     formatted_input = f'''<objective>
-    Generate a JSON file describing the sketching and extrusion steps needed to construct a 3D CAD model. Generate only the JSON file, no other text.
+    Generate a JSON file describing the sketching and extrusion steps needed to construct a 3D CAD model based on the description provided. The output should include a reasoning section within the <think> tag and the corresponding JSON in the <json> tag. Do not provide any additional text outside of the tags.
     </objective>
 
     <instruction>
-    You will be given a natural language description of a CAD design task. Your goal is to convert it into a structured JSON representation, which includes sketch geometry and extrusion operations.
+    You will be given a natural language description of a CAD design task enclosed within <description> </description>. Your task is to:
+    1. Analyze the description and extract the relevant geometric and extrusion information.
+    2. In the <think> tag, explain how you derived each field and value in the JSON from the description. This includes the geometric properties (e.g., coordinates, shapes) and extrusion operations. The reasoning should clarify how the geometry is mapped to the JSON structure and the chosen extrusion operation.
+    3. Based on the reasoning in the <think> tag, generate the corresponding JSON structure for the CAD model in the <json> tag.
+
     The extrusion <operation> must be one of the following:
     1. <NewBodyFeatureOperation>: Creates a new solid body.
     2. <JoinFeatureOperation>: Fuses the shape with an existing body.
     3. <CutFeatureOperation>: Subtracts the shape from an existing body.
     4. <IntersectFeatureOperation>: Keeps only the overlapping volume between the new shape and existing body.
-    Ensure all coordinates, geometry, and extrusion depths are extracted accurately from the input.
     </instruction>
 
     <description>
@@ -58,7 +68,7 @@ def generate_response(model, tokenizer, prompt, do_sample=True):
 
     generated_ids = model.generate(
         **model_inputs,
-        max_new_tokens=6000,
+        max_new_tokens=10000,
         do_sample=do_sample,
         temperature=0.7 if do_sample else None,
         top_p=0.9 if do_sample else None,
@@ -76,21 +86,31 @@ def generate_response(model, tokenizer, prompt, do_sample=True):
 def process_dataset(model, tokenizer, dataset, split_name, do_sample=True):
     print(f"Generating predictions for {split_name}...")
     predictions = []
+    reasonings = []
+    
     # Take only first 1000 samples
     # dataset = dataset.select(range(min(500, len(dataset))))
     for item in tqdm(dataset, desc=f"Processing {split_name}"):
-        pred = generate_response(model, tokenizer, item["input"], do_sample=do_sample)
-        predictions.append(pred)
+        response = generate_response(model, tokenizer, item["input"], do_sample=do_sample)
+        
+        # Extract reasoning from <think> tag
+        reasoning = extract_tags(response, "think")
+        reasonings.append(reasoning)
+        
+        # Extract JSON content from <json> tag (without the tags)
+        json_content = extract_tags(response, "json")
+        predictions.append(json_content)
 
     processed_dataset = Dataset.from_dict({
         "uid": dataset["uid"],
         "input": dataset["input"],
+        "reasoning": reasonings,
         "predicted_output": predictions,
         "ground_truth_output": dataset["output"]
     })
 
     print(f"Pushing {split_name} dataset to hub...")
-    processed_dataset.push_to_hub("wanhin/test_1e_stage1_full_ft", split=split_name)
+    processed_dataset.push_to_hub("wanhin/test_reasoning_1_2e", split=split_name)
     print(f"{split_name} dataset pushed successfully!")
 
 def main():
@@ -102,7 +122,7 @@ def main():
     login(token=hf_token)
 
     # Load the trained model
-    model_path = "1e_full"
+    model_path = "wanhin/cad_reasoning_1_2e"
     model, tokenizer = load_trained_model(model_path)
 
     # Load English and Vietnamese test datasets separately

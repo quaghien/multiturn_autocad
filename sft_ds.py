@@ -26,15 +26,15 @@ try:
         raise ValueError("Please set WANDB_API_KEY environment variable")
     wandb.login(key=wandb_token)
 
-    wandb.init(project="stage1-cad-29-05")
+    wandb.init(project="stage2-reason-24-06")
 
     dtype = torch.bfloat16
     max_length = 6000
-    num_epochs = 1
-    learning_rate = 2e-5
+    num_epochs = 2
+    learning_rate = 5e-5
     num_proc = 16
-    model_name = "1e_full" #   meta-llama/Llama-3.1-8B-Instruct    Qwen/Qwen2.5-7B-Instruct
-    output_dir = f"{model_name.split('/')[-1]}_{num_epochs}epoch_stage1_10-06"
+    model_name = "wanhin/Qwen2.5-7B-Instruct_1e_fullfinetune" #   meta-llama/Llama-3.1-8B-Instruct    Qwen/Qwen2.5-7B-Instruct
+    output_dir = f"{model_name.split('/')[-1]}_{num_epochs}epoch_stage2_24-06"
 
     print(f"Training model: {output_dir}")
 
@@ -52,8 +52,8 @@ try:
         use_cache=False
     )
 
-    raw_train_dataset = load_dataset("wanhin/DEEPCAD-stage1", split="train_en_vi", keep_in_memory=True)
-    raw_val_dataset = load_dataset("wanhin/DEEPCAD-stage1", split="val_en_vi_400", keep_in_memory=True)
+    raw_train_dataset = load_dataset("wanhin/reason_s1_full_train", split="new_train", keep_in_memory=True)
+    raw_val_dataset = load_dataset("wanhin/reason_s1_full_train", split="val", keep_in_memory=True)
 
     # raw_train_dataset = raw_train_dataset.to_pandas()
     # raw_train_dataset = [{"prompt": str(item["prompt"]), "completion": str(item["completion"])} for _, item in raw_train_dataset[300000:].iterrows()]
@@ -76,28 +76,27 @@ try:
 
     training_args = SFTConfig(
         dataset_num_proc = num_proc,
-        dataloader_num_workers=2,
         max_length = max_length,
         completion_only_loss = True,
         output_dir=f"./train_results/{output_dir}",
         num_train_epochs=num_epochs,
         per_device_train_batch_size=4,
         per_device_eval_batch_size=1,
-        gradient_accumulation_steps=32,
+        gradient_accumulation_steps=2,
         learning_rate=learning_rate,
         bf16=True,
-        save_strategy="steps",
-        save_steps=250,
+        eval_strategy="epoch",
+        save_strategy="epoch",
+        # save_steps=250,
         save_total_limit=2,
         save_safetensors=True,
-        logging_steps=10,
-        eval_strategy="steps",
-        eval_steps=250,
+        logging_steps=5,
+        # eval_steps=250,
         remove_unused_columns=True,
         use_liger_kernel=True,
         gradient_checkpointing=True,
         optim="adamw_torch",
-        warmup_steps=0,
+        warmup_steps=2,
         report_to="wandb",
         save_only_model=True,
     )
