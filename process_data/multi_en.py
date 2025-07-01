@@ -11,33 +11,33 @@ from tqdm import tqdm
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime
 
-# Prompt template cho single sample - rõ ràng và đầy đủ
+# Prompt template for single sample - clear and comprehensive
 single_prompt_template = '''
-QUY LUẬT XỬ LÝ CHO MỖI <input_i>:
+PROCESSING RULES FOR EACH <input_i>:
 
-1. Phân tích từng sampel json input để đếm số parts.
-2. Tạo multi-turn data tùy chỉnh theo số part của từng sample json input: (json_1, prompt_1, think_1 -> ... -> json_i, prompt_i, think_i)
+1. Analyze each sample json input to count the number of parts.
+2. Create custom multi-turn data according to the number of parts in each sample json input: (json_1, prompt_1, think_1 -> ... -> json_i, prompt_i, think_i)
 
-CHI TIẾT QUY LUẬT:
-- Tạo json progressive: json_1 (chỉ part_1), json_2 (part_1 + part_2), ..., json_n (part_1 + part_2 + ... + part_n) (part nào không có thì không tạo)
-- Mỗi json đặt trong tag <json_i></json_i>
-- Tạo mô tả user input cho từng part trong tag <prompt_i></prompt_i> (mô tả hình dạng, không có số liệu kỹ thuật) (mô tả user để tùy chỉnh từ part trước đó để có part này)
-- Tạo suy luận 2 bước trong tag <think_i></think_i>:
-  * Bước 1: Suy luận các thành phần sẽ có trong JSON dựa trên mô tả được cung cấp
-  * Bước 2: Kiểm tra logic, tính đúng đắn về số học, và thực hiện các sửa đổi (nếu cần thiết) từ Bước 1
+DETAILED RULES:
+- Create progressive json: json_1 (only part_1), json_2 (part_1 + part_2), ..., json_n (part_1 + part_2 + ... + part_n) (if a part doesn't exist, don't create it)
+- Place each json within <json_i></json_i> tags
+- Create user input descriptions for each part within <prompt_i></prompt_i> tags (describe shapes, no technical specifications) (describe user modifications from previous part to achieve this part)
+- Create 2-step reasoning within <think_i></think_i> tags:
+  * Step 1: Reason about the components that will be included in the JSON based on the provided description
+  * Step 2: Check logic, mathematical correctness, and perform modifications (if necessary) from Step 1
 
-FORMAT OUTPUT CHO MỖI SAMPLE (tạo từng part một, part nào không có thì không tạo):
+OUTPUT FORMAT FOR EACH SAMPLE (create each part individually, don't create if part doesn't exist):
 <sample_i>
-<json_1>[json với part_1]</json_1>
-<prompt_1>[mô tả user để tạo part_1]</prompt_1>
-<think_1>[suy luận 2 bước để tạo json_1]</think_1>
-<json_2>[json với part_1 + part_2]</json_2>
-<prompt_2>[mô tả user để tùy chỉnh part_1 để có được part 1 + part 2]</prompt_2> (chỉ tạo nếu có part_2)
-<think_2>[suy luận 2 bước để tạo json_2]</think_2>
-...tiếp tục đến json_n (nếu có) ...
+<json_1>[json with part_1]</json_1>
+<prompt_1>[user description to create part_1]</prompt_1>
+<think_1>[2-step reasoning to create json_1]</think_1>
+<json_2>[json with part_1 + part_2]</json_2>
+<prompt_2>[user description to modify part_1 to get part 1 + part 2]</prompt_2> (only create if part_2 exists)
+<think_2>[2-step reasoning to create json_2]</think_2>
+...continue to json_n (if exists) ...
 </sample_i>
 
-VÍ DỤ CỤ THỂ:
+SPECIFIC EXAMPLE:
 ***
 INPUT:
 <input_1>
@@ -51,127 +51,127 @@ OUTPUT:
 {"parts":{"part_1":{"coordinate_system":{"Euler Angles":[0.0,0.0,0.0],"Translation Vector":[0.0,0.0,0.0]},"sketch":{"face_1":{"loop_1":{"line_1":{"Start Point":[0.0,0.0],"End Point":[0.75,0.0]},"line_2":{"Start Point":[0.75,0.0],"End Point":[0.75,0.2812]},"line_3":{"Start Point":[0.75,0.2812],"End Point":[0.0,0.2812]},"line_4":{"Start Point":[0.0,0.2812],"End Point":[0.0,0.0]}},"loop_2":{"circle_1":{"Center":[0.1716,0.1406],"Radius":0.0769}},"loop_3":{"circle_1":{"Center":[0.5784,0.1406],"Radius":0.0769}}},"face_2":{"loop_1":{"circle_1":{"Center":[0.1716,0.1406],"Radius":0.0769}},"loop_2":{"circle_1":{"Center":[0.1716,0.1406],"Radius":0.0675}}},"face_3":{"loop_1":{"circle_1":{"Center":[0.5784,0.1406],"Radius":0.0769}},"loop_2":{"circle_1":{"Center":[0.5784,0.1406],"Radius":0.0675}}}},"extrusion":{"extrude_depth_towards_normal":0.0562,"extrude_depth_opposite_normal":0.0,"sketch_scale":0.75,"operation":"NewBodyFeatureOperation"}}}}
 </json_1>
 <prompt_1>
-Tôi muốn tạo một tấm phẳng hình chữ nhật. Trên tấm đó có hai lỗ tròn và ở hai mặt bên của tấm, tại vị trí hai lỗ đó, tôi muốn có hai rãnh tròn đồng tâm.
+I want to create a rectangular flat plate. On the plate, there should be two circular holes, and on both side faces of the plate, at the positions of those holes, I want to have two concentric circular grooves.
 </prompt_1>
 <think_1>
-Bước 1: Suy luận các thành phần sẽ có trong JSON dựa trên mô tả được cung cấp
-Từ yêu cầu "Tôi muốn tạo một tấm phẳng hình chữ nhật. Trên tấm đó có hai lỗ tròn và ở hai mặt bên của tấm, tại vị trí hai lỗ đó, tôi muốn có hai rãnh tròn đồng tâm", tôi sẽ phân tích và giả định các yếu tố cần thiết, liệt kê các khóa JSON cụ thể.
+Step 1: Reason about the components that will be included in the JSON based on the provided description
+From the requirement "I want to create a rectangular flat plate. On the plate, there should be two circular holes, and on both side faces of the plate, at the positions of those holes, I want to have two concentric circular grooves", I will analyze and determine the necessary elements, listing the specific JSON keys.
 
-**parts**: Khóa cấp cao nhất để chứa các phần của mô hình.
-**part_1**: Định nghĩa phần đầu tiên của mô hình.
-**coordinate_system**: Thành phần để định vị và hướng phần này trong không gian.
-  **Euler Angles**: Tôi sẽ giả định không có sự xoay ban đầu. Tôi đặt là `[0.0,0.0,0.0]`.
-  **Translation Vector**: Tôi sẽ giả định một vị trí mặc định tại gốc tọa độ. Tôi đặt là `[0.0,0.0,0.0]`.
-**sketch**: Thành phần định nghĩa bản phác thảo 2D cơ sở.
-  **face_1**: Đại diện cho mặt phẳng chứa bản phác thảo chính của tấm và các lỗ.
-    **loop_1**: Đại diện cho hình chữ nhật bên ngoài của tấm.
-      **line_1, line_2, line_3, line_4**: Tôi sẽ đặt các điểm `Start Point` và `End Point` để tạo hình chữ nhật. Ví dụ: `line_1:{"Start Point":[0.0,0.0],"End Point":[0.75,0.0]}`, `line_2:{"Start Point":[0.75,0.0],"End Point":[0.75,0.2812]}`, `line_3:{"Start Point":[0.75,0.2812],"End Point":[0.0,0.2812]}`, `line_4:{"Start Point":[0.0,0.2812],"End Point":[0.0,0.0]}`.
-    **loop_2, loop_3**: Đại diện cho hai lỗ tròn trên tấm.
-      **circle_1**: Là hình dạng lỗ tròn.
-        **Center**: Tôi sẽ đặt các vị trí tâm cho hai lỗ, ví dụ: `loop_2:{"circle_1":{"Center":[0.1716,0.1406]}}` và `loop_3:{"circle_1":{"Center":[0.5784,0.1406]}}`.
-        **Radius**: Tôi sẽ đặt bán kính cho hai lỗ, ví dụ: `0.0769`.
-  **face_2, face_3**: Đại diện cho hai rãnh tròn đồng tâm ở mặt bên. Mỗi rãnh sẽ là một `face` riêng.
-    **loop_1**: Đại diện cho vòng ngoài của rãnh.
-      **circle_1**: Là hình dạng vòng ngoài.
-        **Center**: Tôi sẽ đặt tâm của vòng ngoài trùng với tâm lỗ tương ứng, ví dụ: `face_2:{"loop_1":{"circle_1":{"Center":[0.1716,0.1406]}}}` và `face_3:{"loop_1":{"circle_1":{"Center":[0.5784,0.1406]}}}`.
-        **Radius**: Tôi sẽ đặt bán kính của vòng ngoài, ví dụ: `0.0769`.
-    **loop_2**: Đại diện cho vòng trong của rãnh.
-      **circle_1**: Là hình dạng vòng trong.
-        **Center**: Tôi sẽ đặt tâm của vòng trong trùng với tâm vòng ngoài, ví dụ: `face_2:{"loop_2":{"circle_1":{"Center":[0.1716,0.1406]}}}` và `face_3:{"loop_2":{"circle_1":{"Center":[0.5784,0.1406]}}}`.
-        **Radius**: Tôi sẽ đặt bán kính của vòng trong, nhỏ hơn vòng ngoài một chút, ví dụ: `0.0675`.
-**extrusion**: Thành phần định nghĩa quá trình đùn để tạo hình 3D.
-  **extrude_depth_towards_normal**: Tôi sẽ đặt một chiều dày hợp lý cho tấm, ví dụ `0.0562`.
-  **extrude_depth_opposite_normal**: Tôi suy luận rằng quá trình đùn chỉ diễn ra một chiều. Tôi đặt là `0.0`.
-  **sketch_scale**: Tôi sẽ đặt một tỷ lệ để tấm không bị thon, ví dụ `0.75`.
-  **operation**: Tôi suy luận rằng đây là thao tác để tạo một khối 3D mới hoàn chỉnh. Tôi đặt là `"NewBodyFeatureOperation"`.
+**parts**: Top-level key to contain the model components.
+**part_1**: Defines the first part of the model.
+**coordinate_system**: Component to position and orient this part in space.
+  **Euler Angles**: I will assume no initial rotation. I set it as `[0.0,0.0,0.0]`.
+  **Translation Vector**: I will assume a default position at the coordinate origin. I set it as `[0.0,0.0,0.0]`.
+**sketch**: Component defining the base 2D sketch.
+  **face_1**: Represents the plane containing the main sketch of the plate and holes.
+    **loop_1**: Represents the outer rectangle of the plate.
+      **line_1, line_2, line_3, line_4**: I will set the `Start Point` and `End Point` to create a rectangle. For example: `line_1:{"Start Point":[0.0,0.0],"End Point":[0.75,0.0]}`, `line_2:{"Start Point":[0.75,0.0],"End Point":[0.75,0.2812]}`, `line_3:{"Start Point":[0.75,0.2812],"End Point":[0.0,0.2812]}`, `line_4:{"Start Point":[0.0,0.2812],"End Point":[0.0,0.0]}`.
+    **loop_2, loop_3**: Represent the two circular holes on the plate.
+      **circle_1**: The circular hole shape.
+        **Center**: I will set the center positions for the two holes, for example: `loop_2:{"circle_1":{"Center":[0.1716,0.1406]}}` and `loop_3:{"circle_1":{"Center":[0.5784,0.1406]}}`.
+        **Radius**: I will set the radius for the two holes, for example: `0.0769`.
+  **face_2, face_3**: Represent the two concentric circular grooves on the side faces. Each groove will be a separate `face`.
+    **loop_1**: Represents the outer ring of the groove.
+      **circle_1**: The outer ring shape.
+        **Center**: I will set the center of the outer ring to coincide with the corresponding hole center, for example: `face_2:{"loop_1":{"circle_1":{"Center":[0.1716,0.1406]}}}` and `face_3:{"loop_1":{"circle_1":{"Center":[0.5784,0.1406]}}}`.
+        **Radius**: I will set the radius of the outer ring, for example: `0.0769`.
+    **loop_2**: Represents the inner ring of the groove.
+      **circle_1**: The inner ring shape.
+        **Center**: I will set the center of the inner ring to coincide with the outer ring center, for example: `face_2:{"loop_2":{"circle_1":{"Center":[0.1716,0.1406]}}}` and `face_3:{"loop_2":{"circle_1":{"Center":[0.5784,0.1406]}}}`.
+        **Radius**: I will set the radius of the inner ring, slightly smaller than the outer ring, for example: `0.0675`.
+**extrusion**: Component defining the extrusion process to create 3D shape.
+  **extrude_depth_towards_normal**: I will set a reasonable thickness for the plate, for example `0.0562`.
+  **extrude_depth_opposite_normal**: I reason that the extrusion process occurs in only one direction. I set it as `0.0`.
+  **sketch_scale**: I will set a scale so the plate doesn't get distorted, for example `0.75`.
+  **operation**: I reason that this is an operation to create a new complete 3D body. I set it as `"NewBodyFeatureOperation"`.
 
-Bước 2: Kiểm tra logic, tính đúng đắn về số học, và thực hiện các sửa đổi (nếu cần thiết) từ Bước 1
-Tôi kiểm tra tính hợp lý của các thông số đã suy luận từ Bước 1.
+Step 2: Check logic, mathematical correctness, and perform modifications (if necessary) from Step 1
+I check the reasonableness of the parameters reasoned from Step 1.
 
 **coordinate_system**:
-  **Euler Angles:[0.0,0.0,0.0]**: Suy luận: Không xoay. Kết luận: Hợp lý.
-  **Translation Vector:[0.0,0.0,0.0]**: Suy luận: Tại gốc tọa độ. Kết luận: Hợp lý.
+  **Euler Angles:[0.0,0.0,0.0]**: Reasoning: No rotation. Conclusion: Reasonable.
+  **Translation Vector:[0.0,0.0,0.0]**: Reasoning: At coordinate origin. Conclusion: Reasonable.
 **sketch**:
   **face_1**:
-    **loop_1 (hình chữ nhật)**: Các điểm tọa độ tạo hình chữ nhật hợp lý. Kết luận: Hợp lý.
-    **loop_2, loop_3 (lỗ tròn)**: Tâm và bán kính của các lỗ được đặt đối xứng và hợp lý trên tấm. Kết luận: Hợp lý.
-  **face_2, face_3 (rãnh đồng tâm)**:
-    **loop_1, loop_2**: Các vòng tròn đồng tâm với bán kính khác nhau tạo rãnh. Vị trí tâm trùng với các lỗ trên `face_1` là hợp lý cho mô tả "ở hai mặt bên của tấm, tại vị trí hai lỗ đó". Kết luận: Hợp lý.
+    **loop_1 (rectangle)**: The coordinate points create a reasonable rectangle. Conclusion: Reasonable.
+    **loop_2, loop_3 (circular holes)**: The centers and radii of the holes are placed symmetrically and reasonably on the plate. Conclusion: Reasonable.
+  **face_2, face_3 (concentric grooves)**:
+    **loop_1, loop_2**: The concentric circles with different radii create grooves. The center positions coinciding with the holes on `face_1` is reasonable for the description "on both side faces of the plate, at the positions of those holes". Conclusion: Reasonable.
 **extrusion**:
-  **extrude_depth_towards_normal:0.0562**: Suy luận: Xác định chiều dày của tấm. Kết luận: Hợp lý.
-  **extrude_depth_opposite_normal:0.0**: Suy luận: Chỉ đùn một chiều. Kết luận: Hợp lý.
-  **sketch_scale:0.75**: Suy luận: Tỷ lệ phác thảo để tấm không bị thon. Kết luận: Hợp lý.
-  **operation:"NewBodyFeatureOperation"**: Suy luận: Tạo khối mới. Kết luận: Hợp lý.
-Thực hiện các sửa đổi (nếu cần thiết): Không có thông số nào cần sửa đổi.
+  **extrude_depth_towards_normal:0.0562**: Reasoning: Determines the thickness of the plate. Conclusion: Reasonable.
+  **extrude_depth_opposite_normal:0.0**: Reasoning: Only extrude in one direction. Conclusion: Reasonable.
+  **sketch_scale:0.75**: Reasoning: Sketch scale so the plate doesn't get distorted. Conclusion: Reasonable.
+  **operation:"NewBodyFeatureOperation"**: Reasoning: Create new body. Conclusion: Reasonable.
+Perform modifications (if necessary): No parameters need modification.
 </think_1>
 
 <json_2>
 {"parts":{"part_1":{"coordinate_system":{"Euler Angles":[0.0,0.0,0.0],"Translation Vector":[0.0,0.0,0.0]},"sketch":{"face_1":{"loop_1":{"line_1":{"Start Point":[0.0,0.0],"End Point":[0.75,0.0]},"line_2":{"Start Point":[0.75,0.0],"End Point":[0.75,0.2812]},"line_3":{"Start Point":[0.75,0.2812],"End Point":[0.0,0.2812]},"line_4":{"Start Point":[0.0,0.2812],"End Point":[0.0,0.0]}},"loop_2":{"circle_1":{"Center":[0.1716,0.1406],"Radius":0.0769}},"loop_3":{"circle_1":{"Center":[0.5784,0.1406],"Radius":0.0769}}},"face_2":{"loop_1":{"circle_1":{"Center":[0.1716,0.1406],"Radius":0.0769}},"loop_2":{"circle_1":{"Center":[0.1716,0.1406],"Radius":0.0675}}},"face_3":{"loop_1":{"circle_1":{"Center":[0.5784,0.1406],"Radius":0.0769}},"loop_2":{"circle_1":{"Center":[0.5784,0.1406],"Radius":0.0675}}}},"extrusion":{"extrude_depth_towards_normal":0.0562,"extrude_depth_opposite_normal":0.0,"sketch_scale":0.75,"operation":"NewBodyFeatureOperation"}},"part_2":{"coordinate_system":{"Euler Angles":[0.0,0.0,0.0],"Translation Vector":[0.0947,0.0637,0.0562]},"sketch":{"face_1":{"loop_1":{"circle_1":{"Center":[0.0769,0.0769],"Radius":0.0769}},"loop_2":{"circle_1":{"Center":[0.0769,0.0769],"Radius":0.0675}}},"face_2":{"loop_1":{"circle_1":{"Center":[0.0769,0.0769],"Radius":0.0675}}},"face_3":{"loop_1":{"circle_1":{"Center":[0.4837,0.0769],"Radius":0.0769}},"loop_2":{"circle_1":{"Center":[0.4837,0.0769],"Radius":0.0675}}},"face_4":{"loop_1":{"circle_1":{"Center":[0.4837,0.0769],"Radius":0.0675}}}},"extrusion":{"extrude_depth_towards_normal":0.0,"extrude_depth_opposite_normal":0.0187,"sketch_scale":0.5606,"operation":"CutFeatureOperation"}}}}
 </json_2>
 <prompt_2>
-Tôi muốn thêm hai rãnh tròn nữa, ở hai phía còn lại của tấm hình chữ nhật, nằm gần các lỗ tròn ban đầu. Hai rãnh này cũng là dạng vành khuyên và nông.
+I want to add two more circular grooves on the two remaining sides of the rectangular plate, located near the original circular holes. These grooves should also be annular and shallow.
 </prompt_2>
 <think_2>
-Bước 1: Suy luận các thành phần sẽ có trong JSON dựa trên mô tả được cung cấp
-Từ yêu cầu "Tôi muốn thêm hai rãnh tròn nữa, ở hai phía còn lại của tấm hình chữ nhật, nằm gần các lỗ tròn ban đầu. Hai rãnh này cũng là dạng vành khuyên và nông", tôi sẽ phân tích và giả định các yếu tố cần thiết, liệt kê các khóa JSON cụ thể cho `part_2`.
+Step 1: Reason about the components that will be included in the JSON based on the provided description
+From the requirement "I want to add two more circular grooves on the two remaining sides of the rectangular plate, located near the original circular holes. These grooves should also be annular and shallow", I will analyze and determine the necessary elements, listing the specific JSON keys for `part_2`.
 
-**part_2**: Định nghĩa hai rãnh tròn mới.
-**coordinate_system**: Thành phần để định vị và hướng phần này trong không gian.
-  **Euler Angles**: Tôi sẽ giả định không có sự xoay ban đầu. Tôi đặt là `[0.0,0.0,0.0]`.
-  **Translation Vector**: Tôi sẽ đặt vị trí của các rãnh. Z-coordinate sẽ bằng chiều dày của tấm (`0.0562`) để chúng nằm trên mặt trên của tấm. X và Y sẽ được dịch một chút để các rãnh nằm gần các lỗ tròn ban đầu nhưng ở phía khác, ví dụ `[0.0947,0.0637,0.0562]`.
-**sketch**: Thành phần định nghĩa bản phác thảo 2D hình vành khuyên (hai hình tròn đồng tâm) cho mỗi rãnh.
-  **face_1**: Đại diện cho rãnh thứ nhất.
-    **loop_1**: Đại diện cho vòng ngoài của rãnh.
-      **circle_1**: Là hình dạng vòng ngoài.
-        **Center**: Tôi sẽ đặt tâm của vòng ngoài, ví dụ `[0.0769,0.0769]`.
-        **Radius**: Tôi sẽ đặt bán kính của vòng ngoài, ví dụ `0.0769`.
-    **loop_2**: Đại diện cho vòng trong của rãnh.
-      **circle_1**: Là hình dạng vòng trong.
-        **Center**: Tôi sẽ đặt tâm của vòng trong trùng với tâm vòng ngoài, ví dụ `[0.0769,0.0769]`.
-        **Radius**: Tôi sẽ đặt bán kính của vòng trong, ví dụ `0.0675`.
-  **face_2**: Đại diện cho phần cắt của rãnh thứ nhất (nếu có vòng trong). Tôi suy luận rằng đây là một vòng tròn đồng tâm với vòng ngoài để tạo rãnh vành khuyên.
+**part_2**: Defines the two new circular grooves.
+**coordinate_system**: Component to position and orient this part in space.
+  **Euler Angles**: I will assume no initial rotation. I set it as `[0.0,0.0,0.0]`.
+  **Translation Vector**: I will set the position of the grooves. The Z-coordinate will equal the plate thickness (`0.0562`) so they are on the top surface of the plate. X and Y will be shifted slightly so the grooves are near the original circular holes but on the other side, for example `[0.0947,0.0637,0.0562]`.
+**sketch**: Component defining the 2D annular sketch (two concentric circles) for each groove.
+  **face_1**: Represents the first groove.
+    **loop_1**: Represents the outer ring of the groove.
+      **circle_1**: The outer ring shape.
+        **Center**: I will set the center of the outer ring, for example `[0.0769,0.0769]`.
+        **Radius**: I will set the radius of the outer ring, for example `0.0769`.
+    **loop_2**: Represents the inner ring of the groove.
+      **circle_1**: The inner ring shape.
+        **Center**: I will set the center of the inner ring to coincide with the outer ring center, for example `[0.0769,0.0769]`.
+        **Radius**: I will set the radius of the inner ring, for example `0.0675`.
+  **face_2**: Represents the cut portion of the first groove (if there is an inner ring). I reason that this is a circle concentric with the outer ring to create an annular groove.
     **loop_1**:
       **circle_1**:
-        **Center**: Tôi sẽ đặt tâm của vòng trong trùng với tâm vòng ngoài, ví dụ `[0.0769,0.0769]`.
-        **Radius**: Tôi sẽ đặt bán kính của vòng trong, ví dụ `0.0675`.
-  **face_3**: Đại diện cho rãnh thứ hai.
-    **loop_1**: Đại diện cho vòng ngoài của rãnh.
-      **circle_1**: Là hình dạng vòng ngoài.
-        **Center**: Tôi sẽ đặt tâm của vòng ngoài, ví dụ `[0.4837,0.0769]`.
-        **Radius**: Tôi sẽ đặt bán kính của vòng ngoài, ví dụ `0.0769`.
-    **loop_2**: Đại diện cho vòng trong của rãnh.
-      **circle_1**: Là hình dạng vòng trong.
-        **Center**: Tôi sẽ đặt tâm của vòng trong trùng với tâm vòng ngoài, ví dụ `[0.4837,0.0769]`.
-        **Radius**: Tôi sẽ đặt bán kính của vòng trong, ví dụ `0.0675`.
-  **face_4**: Đại diện cho phần cắt của rãnh thứ hai (nếu có vòng trong). Tôi suy luận rằng đây là một vòng tròn đồng tâm với vòng ngoài để tạo rãnh vành khuyên.
+        **Center**: I will set the center of the inner ring to coincide with the outer ring center, for example `[0.0769,0.0769]`.
+        **Radius**: I will set the radius of the inner ring, for example `0.0675`.
+  **face_3**: Represents the second groove.
+    **loop_1**: Represents the outer ring of the groove.
+      **circle_1**: The outer ring shape.
+        **Center**: I will set the center of the outer ring, for example `[0.4837,0.0769]`.
+        **Radius**: I will set the radius of the outer ring, for example `0.0769`.
+    **loop_2**: Represents the inner ring of the groove.
+      **circle_1**: The inner ring shape.
+        **Center**: I will set the center of the inner ring to coincide with the outer ring center, for example `[0.4837,0.0769]`.
+        **Radius**: I will set the radius of the inner ring, for example `0.0675`.
+  **face_4**: Represents the cut portion of the second groove (if there is an inner ring). I reason that this is a circle concentric with the outer ring to create an annular groove.
     **loop_1**:
       **circle_1**:
-        **Center**: Tôi sẽ đặt tâm của vòng trong trùng với tâm vòng ngoài, ví dụ `[0.4837,0.0769]`.
-        **Radius**: Tôi sẽ đặt bán kính của vòng trong, ví dụ `0.0675`.
-**extrusion**: Thành phần định nghĩa quá trình đùn để tạo rãnh (cắt).
-  **extrude_depth_towards_normal**: Tôi suy luận rằng quá trình khoét rãnh sẽ đi ngược chiều pháp tuyến của bề mặt. Tôi đặt là `0.0`.
-  **extrude_depth_opposite_normal**: Tôi sẽ đặt chiều sâu của rãnh rất nông, ví dụ `0.0187`.
-  **sketch_scale**: Tôi sẽ đặt một tỷ lệ để rãnh không bị biến dạng, ví dụ `0.5606`.
-  **operation**: Tôi suy luận rằng đây là thao tác để cắt vật thể hiện có. Tôi đặt là `"CutFeatureOperation"`.
+        **Center**: I will set the center of the inner ring to coincide with the outer ring center, for example `[0.4837,0.0769]`.
+        **Radius**: I will set the radius of the inner ring, for example `0.0675`.
+**extrusion**: Component defining the extrusion process to create grooves (cutting).
+  **extrude_depth_towards_normal**: I reason that the groove cutting process will go against the surface normal direction. I set it as `0.0`.
+  **extrude_depth_opposite_normal**: I will set the groove depth to be very shallow, for example `0.0187`.
+  **sketch_scale**: I will set a scale so the grooves don't get distorted, for example `0.5606`.
+  **operation**: I reason that this is an operation to cut the existing body. I set it as `"CutFeatureOperation"`.
 
-Bước 2: Kiểm tra logic, tính đúng đắn về số học, và thực hiện các sửa đổi (nếu cần thiết) từ Bước 1
-Tôi kiểm tra tính hợp lý của các thông số đã suy luận từ Bước 1.
+Step 2: Check logic, mathematical correctness, and perform modifications (if necessary) from Step 1
+I check the reasonableness of the parameters reasoned from Step 1.
 
 **coordinate_system**:
-  **Euler Angles:[0.0,0.0,0.0]**: Suy luận: Không xoay. Kết luận: Hợp lý.
-  **Translation Vector:[0.0947,0.0637,0.0562]**: Suy luận: Vị trí trên mặt trên của tấm và hơi dịch chuyển. Kết luận: Hợp lý.
+  **Euler Angles:[0.0,0.0,0.0]**: Reasoning: No rotation. Conclusion: Reasonable.
+  **Translation Vector:[0.0947,0.0637,0.0562]**: Reasoning: Position on the top surface of the plate with slight displacement. Conclusion: Reasonable.
 **sketch**:
-  **face_1, face_3 (vòng ngoài)**:
-    **circle_1**: Tâm và bán kính tạo vòng ngoài. Kết luận: Hợp lý.
-  **face_1, face_3 (vòng trong)**:
-    **circle_1**: Tâm và bán kính tạo vòng trong đồng tâm và nhỏ hơn. Kết luận: Hợp lý.
-  **face_2, face_4**: Các rãnh này có vẻ được định nghĩa bằng một vòng tròn duy nhất (chỉ có `loop_1` và `circle_1`), nhưng mô tả là "vành khuyên". Có thể `loop_2` của `face_1` và `face_3` đã tạo ra vòng trong, và `face_2` và `face_4` chỉ là các bản sao của vòng trong đó hoặc là các mặt phẳng phác thảo cho việc cắt. Dựa vào JSON, `face_2` và `face_4` chỉ có một `loop` với một `circle` có bán kính `0.0675`, đây chính là bán kính của vòng trong từ `face_1` và `face_3`. Điều này cho thấy `face_2` và `face_4` được dùng để định nghĩa lỗ cắt cho rãnh vành khuyên. Kết luận: Hợp lý để tạo rãnh vành khuyên.
+  **face_1, face_3 (outer rings)**:
+    **circle_1**: Center and radius create outer rings. Conclusion: Reasonable.
+  **face_1, face_3 (inner rings)**:
+    **circle_1**: Center and radius create concentric inner rings that are smaller. Conclusion: Reasonable.
+  **face_2, face_4**: These grooves seem to be defined by a single circle (only having `loop_1` and `circle_1`), but the description is "annular". It's possible that `loop_2` of `face_1` and `face_3` already created the inner rings, and `face_2` and `face_4` are just copies of those inner rings or are sketch planes for cutting. Based on the JSON, `face_2` and `face_4` only have one `loop` with one `circle` having radius `0.0675`, which is exactly the radius of the inner rings from `face_1` and `face_3`. This indicates that `face_2` and `face_4` are used to define the cutting holes for the annular grooves. Conclusion: Reasonable for creating annular grooves.
 **extrusion**:
-  **extrude_depth_towards_normal:0.0**: Suy luận: Không đùn về phía pháp tuyến. Kết luận: Hợp lý.
-  **extrude_depth_opposite_normal:0.0187**: Suy luận: Chiều sâu rãnh rất nông. Kết luận: Hợp lý.
-  **sketch_scale:0.5606**: Suy luận: Tỷ lệ phác thảo để rãnh không bị biến dạng. Kết luận: Hợp lý.
-  **operation:"CutFeatureOperation"**: Suy luận: Thực hiện thao tác cắt. Kết luận: Hợp lý.
-Thực hiện các sửa đổi (nếu cần thiết): Cấu trúc của `face_2` và `face_4` trong JSON có vẻ hơi thừa nếu mục đích là tạo rãnh vành khuyên. Thông thường, rãnh vành khuyên được định nghĩa bởi hai vòng tròn đồng tâm trong cùng một `loop` hoặc `face`. Tuy nhiên, với cấu trúc hiện tại, nó vẫn có thể hoạt động nếu phần mềm CAD hiểu rằng việc cắt dựa trên vòng tròn nhỏ hơn sẽ tạo ra một phần rỗng bên trong vòng tròn lớn hơn. Với mục đích suy luận từ mô tả, tôi sẽ giả định đây là cách người dùng muốn tạo rãnh vành khuyên.
+  **extrude_depth_towards_normal:0.0**: Reasoning: No extrusion towards the normal direction. Conclusion: Reasonable.
+  **extrude_depth_opposite_normal:0.0187**: Reasoning: Very shallow groove depth. Conclusion: Reasonable.
+  **sketch_scale:0.5606**: Reasoning: Sketch scale so grooves don't get distorted. Conclusion: Reasonable.
+  **operation:"CutFeatureOperation"**: Reasoning: Perform cutting operation. Conclusion: Reasonable.
+Perform modifications (if necessary): The structure of `face_2` and `face_4` in the JSON seems somewhat redundant if the purpose is to create annular grooves. Typically, annular grooves are defined by two concentric circles within the same `loop` or `face`. However, with the current structure, it can still work if the CAD software understands that cutting based on the smaller circle will create a hollow section inside the larger circle. For the purpose of reasoning from the description, I will assume this is how the user wants to create annular grooves.
 </think_2>
 </sample_1>
 ***
@@ -212,7 +212,7 @@ def save_error_log(dataset_name, split_name, start_index):
         else:
             print("No failed samples to log!")
 
-# Prompt template cho batch processing (dynamic number of samples)
+# Prompt template for batch processing (dynamic number of samples)
 def create_batch_prompt_template(batch_size, single_template, samples_data):
     """Create batch prompt template with dynamic number of samples"""
     
@@ -220,7 +220,7 @@ def create_batch_prompt_template(batch_size, single_template, samples_data):
     input_sections = []
     for i in range(1, batch_size + 1):
         sample_data = samples_data.get(f'input_{i}', '')
-        input_sections.append(rf"<input_{i}>\n{sample_data}\n</input_{i}>")
+        input_sections.append(f"<input_{i}>\n{sample_data}\n</input_{i}>")
     
     # Create output format sections
     output_sections = []
@@ -228,21 +228,21 @@ def create_batch_prompt_template(batch_size, single_template, samples_data):
         output_sections.append(f"<sample_{i}>\noutput_{i}\n</sample_{i}>")
     
     template = f'''
-Tôi sẽ cung cấp cho bạn {batch_size} sample JSON input và bạn cần xử lý từng sample riêng biệt.
+I will provide you with {batch_size} sample JSON inputs and you need to process each sample separately.
 
-CÁC SAMPLES JSON INPUT:
+JSON INPUT SAMPLES:
 {chr(10).join(input_sections)}
 
-OUTPUT YÊU CẦU:
-Xử lý từng sample JSON input theo ví dụ bên dưới và đặt kết quả vào tag tương ứng:
+REQUIRED OUTPUT:
+Process each sample JSON input according to the example below and place results in corresponding tags:
 
 {chr(10).join(output_sections)}
 
-LƯU Ý QUAN TRỌNG:
-- Mỗi <sample_i> chứa đầy đủ: json, prompt, think
-- Tất cả tag phải được tạo như quy luật trong ví dụ bên dưới.
+IMPORTANT NOTES:
+- Each <sample_i> contains complete: json, prompt, think
+- All tags must be created according to the rules in the example below.
 
-QUY LUẬT VÀ VÍ DỤ XỬ LÝ:
+PROCESSING RULES AND EXAMPLE:
 {single_template}
 '''
     return template
@@ -342,8 +342,8 @@ def extract_tags_from_response(response_text, max_parts):
     """Extract json_n, prompt_n, think_n tags from Gemini response"""
     extracted_data = {}
     
-    # Extract tất cả tag có thể có (lên đến max_parts + thêm một ít để đảm bảo)
-    for i in range(1, max_parts + 5):  # Thêm buffer
+    # Extract all possible tags (up to max_parts + some extra to ensure coverage)
+    for i in range(1, max_parts + 5):  # Add buffer
         # Extract json_n
         json_pattern = rf'<json_{i}>\s*(.*?)\s*</json_{i}>'
         json_match = re.search(json_pattern, response_text, re.DOTALL)
@@ -686,7 +686,7 @@ def create_multi_turn_dataset(dataset_name, split_name, new_dataset_name, num_th
 if __name__ == "__main__":
     # Parameters
     dataset_name = "wanhin/cad_reasoning_part"
-    split_name = "vi_part_1"
+    split_name = "en_part_1"
     new_dataset_name = "wanhin/output_reasoning_part"
     num_threads = 4
     samples_per_thread = 9000  # Total samples per thread
@@ -694,7 +694,7 @@ if __name__ == "__main__":
     start_index = 72000  # Starting index parameter
     batch_size = 9  # Number of samples per batch/API call
     expected_parts = 1  # Expected number of parts in dataset (None if not checking)
-    api_key_start_index = 6  # Start from GEMINI_API_KEY_1, GEMINI_API_KEY_2, etc.
+    api_key_start_index = 2  # Start from GEMINI_API_KEY_1, GEMINI_API_KEY_2, etc.
     
     create_multi_turn_dataset(
         dataset_name=dataset_name,
