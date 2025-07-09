@@ -20,15 +20,15 @@ try:
         raise ValueError("Please set WANDB_API_KEY environment variable")
     wandb.login(key=wandb_token)
 
-    wandb.init(project="stage1-cad-completion")
+    wandb.init(project="lora-reasoning")
     
     dtype = torch.bfloat16
-    max_length = 6000
+    max_length = 32000
     num_epochs = 1
     learning_rate = 1e-4
-    num_proc = 1
-    model_name = "Qwen/Qwen2.5-7B-Instruct"
-    output_dir = f"{model_name.split('/')[-1]}_lora_r64"
+    num_proc = 16
+    model_name = "wanhin/cad_reasoning_1_2e"
+    output_dir = f"{model_name.split('/')[-1]}_lora_reasoning"
 
     print(f"Training model: {output_dir}")
 
@@ -49,8 +49,8 @@ try:
 
     # Configure LoRA
     lora_config = LoraConfig(
-        r=64,
-        lora_alpha=128,
+        r=32,
+        lora_alpha=64,
         target_modules=[
             "q_proj",
             "k_proj",
@@ -68,20 +68,30 @@ try:
     # Apply LoRA to model
     model = get_peft_model(model, lora_config)
     
-    # Chỉ mở gradient cho các layer LoRA
+    # Enable training mode explicitly
+    model.train()
+    
+    # The PEFT model should automatically handle requires_grad for LoRA parameters
+    # Let's verify but not override the automatic handling
+    print("\n***Calculating trainable parameters...")
+    trainable_params = 0
+    total_params = 0
     for name, param in model.named_parameters():
-        if "lora" in name:
-            param.requires_grad = True
-        else:
-            param.requires_grad = False
-
+        total_params += param.numel()
+        if param.requires_grad:
+            trainable_params += param.numel()
+    
+    print(f"Trainable params: {trainable_params:,}")
+    print(f"Total params: {total_params:,}")
+    print(f"Trainable%: {100 * trainable_params / total_params:.4f}%\n")
+    
     model.print_trainable_parameters()
 
-    raw_train_dataset = load_dataset("wanhin/DEEPCAD-stage1", split="train_en_vi", keep_in_memory=True)
-    raw_val_dataset = load_dataset("wanhin/DEEPCAD-stage1", split="val_en_vi_400", keep_in_memory=True)
+    raw_train_dataset = load_dataset("wanhin/train_lora_multiturn", split="train", keep_in_memory=True)
+    raw_val_dataset = load_dataset("wanhin/train_lora_multiturn", split="validation", keep_in_memory=True)
     
     # raw_train_dataset = raw_train_dataset.to_pandas()
-    # raw_train_dataset = [{"prompt": str(item["prompt"]), "completion": str(item["completion"])} for _, item in raw_train_dataset[300000:].iterrows()]
+    # raw_train_dataset = [{"prompt": str(item["prompt"]), "completion": str(item["completion"])} for _, item in raw_train_dataset[310000:].iterrows()]
 
     train_dataset_dict = {
         "prompt": [[{"role": "user", "content": item["prompt"]}] for item in raw_train_dataset],
@@ -105,22 +115,23 @@ try:
         completion_only_loss = True,
         output_dir=f"./train_results/{output_dir}",
         num_train_epochs=num_epochs,
-        per_device_train_batch_size=4,
+        per_device_train_batch_size=1,
         per_device_eval_batch_size=1,
         gradient_accumulation_steps=32,
         learning_rate=learning_rate,
         bf16=True,
         save_strategy="steps",
-        save_steps=250,
+        save_steps=3,
         save_total_limit=2,
         save_safetensors=True,
-        logging_steps=10,
+        logging_steps=1,
         eval_strategy="steps",
-        eval_steps=250,
+        eval_steps=1,
         remove_unused_columns=True,
         gradient_checkpointing=True,
+        gradient_checkpointing_kwargs={"use_reentrant": False},
         optim="adamw_torch",
-        warmup_steps=10,
+        warmup_steps=0,
         report_to="wandb",
         save_only_model=True,
     )
@@ -137,10 +148,6 @@ try:
     except Exception as e:
         print("Training failed")
         print(f"Error: {e}") 
-
-    model.push_to_hub(f"wanhin/{output_dir}")
-    tokenizer.push_to_hub(f"wanhin/{output_dir}")
-
 finally:
     if wandb.run is not None:
         wandb.finish()
